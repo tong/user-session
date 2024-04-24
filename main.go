@@ -25,18 +25,24 @@ type Session struct {
 }
 
 var (
+	// expireTime = 60 * time.Minute
+	expireTime time.Duration
 	users      []User
 	sessions   = map[string]Session{}
-	expireTime = 60 * time.Minute
 )
 
 func Login(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("handler:login")
 	// TODO: check if already logged in
 	// c, err := r.Cookie("session_token")
+	// fmt.Println(r.Method)
 	r.ParseForm()
+	if !r.Form.Has("name") || !r.Form.Has("password") {
+		w.WriteHeader(http.StatusNotAcceptable)
+		return
+	}
 	// fmt.Println(r.Form.Has("name"))
-	// fmt.Println(r.Form.Get("name"))
+	// fmt.Println(r.Form.Has("password"))
 	i := slices.IndexFunc(users, func(u User) bool {
 		return r.Form.Get("name") == u.Name && r.Form.Get("password") == u.Password
 	})
@@ -94,6 +100,11 @@ func Refresh(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
+	if session.isExprired() {
+		delete(sessions, token)
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
 	newToken := uuid.NewString()
 	expiresAt := time.Now().Add(expireTime)
 	sessions[newToken] = Session{session.User, expiresAt}
@@ -136,15 +147,43 @@ func Status(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func List(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("handler:list")
+	fmt.Printf("sessions: %d", len(sessions))
+	/*
+		c, err := r.Cookie("session_token")
+		if err != nil {
+			if err == http.ErrNoCookie {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		token := c.Value
+		session, exists := sessions[token]
+		if !exists {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+	*/
+	for k, v := range sessions {
+		fmt.Println(k, v)
+	}
+}
+
 func (s Session) isExprired() bool {
 	return s.Expiry.Before(time.Now())
 }
 
 func main() {
-	_data := flag.String("data", "users.json", "user data file")
 	_host := flag.String("host", "localhost", "host name")
 	_port := flag.Int("port", 16000, "port number")
+	_data := flag.String("data", "users.json", "user data file")
+	_expire := flag.Int("expire", 60, "expire time in minutes")
 	flag.Parse()
+
+	expireTime = time.Duration(*_expire) * time.Minute
 
 	bytes, err := os.ReadFile(*_data)
 	if err != nil {
@@ -154,9 +193,10 @@ func main() {
 	json.Unmarshal(bytes, &users)
 	fmt.Printf("%d users loaded\n", len(users))
 
-	http.HandleFunc("/login", Login)
-	http.HandleFunc("/logout", Logout)
-	http.HandleFunc("/refresh", Refresh)
-	http.HandleFunc("/status/", Status)
+	http.HandleFunc("/session/login", Login)
+	http.HandleFunc("/session/logout", Logout)
+	http.HandleFunc("/session/refresh", Refresh)
+	http.HandleFunc("/session/status/", Status)
+	http.HandleFunc("/session/list/", List)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", *_host, *_port), nil))
 }
