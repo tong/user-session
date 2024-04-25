@@ -70,14 +70,6 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	user := users[i]
 	token := uuid.NewString()
 	expiresAt := time.Now().Add(expireTime)
-	// file := sessionDir + "/" + token
-	// err := os.WriteFile(file, []byte(fmt.Sprintf("%s %s", user.Name, expiresAt.Format(time.UnixDate))), 0644)
-	// if err != nil {
-	// 	fmt.Println("failed to store session")
-	// 	w.WriteHeader(http.StatusInternalServerError)
-	// 	return
-	// }
-	// sessions[token] = Session{user.Name, expiresAt}
 	createSession(token, user.Name, expiresAt)
 	http.SetCookie(w, &http.Cookie{
 		Name:    "session_token",
@@ -188,7 +180,7 @@ func main() {
 
 	bytes, err := os.ReadFile(*_data)
 	if err != nil {
-		log.Fatal("failed to read user data file")
+		log.Fatal("failed to read user data file [" + *_data + "]")
 	}
 	json.Unmarshal(bytes, &users)
 	fmt.Printf("%d users loaded\n", len(users))

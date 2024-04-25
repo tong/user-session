@@ -1,4 +1,4 @@
-module github.com/tong/user-session
+module user-session
 
 go 1.22.2
 
