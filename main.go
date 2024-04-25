@@ -172,6 +172,7 @@ func main() {
 	_host := flag.String("host", "localhost", "host name")
 	_port := flag.Int("port", 16000, "port number")
 	_data := flag.String("data", "users.json", "user data file")
+	_clean := flag.Bool("clean", false, "clear existing sessions")
 	_expire := flag.Int("expire", 60, "expire time in minutes")
 	_session_dir := flag.String("session-dir", "/tmp/user-session", "session storage directory")
 	flag.Parse()
@@ -196,28 +197,34 @@ func main() {
 		}
 	} else {
 		entries, _ := os.ReadDir(sessionDir)
-		for _, e := range entries {
-			token := e.Name()
-			path := sessionDir + "/" + token
-			file, _ := os.ReadFile(path)
-			line := string(file)
-			i := strings.Index(line, " ")
-			username := line[:i]
-			expireAt, _ := time.Parse(time.UnixDate, line[i+1:])
-			i = slices.IndexFunc(users, func(u User) bool {
-				return u.Name == username
-			})
-			if i == -1 {
-				fmt.Printf("No user found for stored session %s\n", token)
-				os.Remove(path)
-				continue
+		if *_clean {
+			for _, e := range entries {
+				os.Remove(sessionDir + "/" + e.Name())
 			}
-			if expireAt.Before(time.Now()) {
-				fmt.Println("session timeout")
-				os.Remove(path)
-				continue
+		} else {
+			for _, e := range entries {
+				token := e.Name()
+				path := sessionDir + "/" + token
+				file, _ := os.ReadFile(path)
+				line := string(file)
+				i := strings.Index(line, " ")
+				username := line[:i]
+				expireAt, _ := time.Parse(time.UnixDate, line[i+1:])
+				i = slices.IndexFunc(users, func(u User) bool {
+					return u.Name == username
+				})
+				if i == -1 {
+					fmt.Printf("no user found for stored session %s\n", token)
+					os.Remove(path)
+					continue
+				}
+				if expireAt.Before(time.Now()) {
+					fmt.Println("session timeout")
+					os.Remove(path)
+					continue
+				}
+				sessions[token] = Session{username, expireAt}
 			}
-			sessions[token] = Session{username, expireAt}
 		}
 		fmt.Printf("%d sessions loaded\n", len(sessions))
 		for k, v := range sessions {
