@@ -160,6 +160,10 @@ func Status(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// func Livestream(w http.ResponseWriter, r *http.Request) {
+// 	fmt.Println("handler:livestream")
+// }
+
 func List(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("handler:list")
 	fmt.Printf("sessions: %d", len(sessions))
@@ -237,5 +241,8 @@ func main() {
 	http.HandleFunc("/session/refresh", Refresh)
 	http.HandleFunc("/session/status/", Status)
 	http.HandleFunc("/session/list/", List)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", *_host, *_port), nil))
+	// http.HandleFunc("/session/livestream", Livestream)
+	addr := fmt.Sprintf("%s:%d", *_host, *_port)
+	fmt.Printf("Listening on %s\n", addr)
+	log.Fatal(http.ListenAndServe(addr, nil))
 }

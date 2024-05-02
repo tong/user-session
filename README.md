@@ -4,7 +4,7 @@ User session management.
 
 ## API
 
-* `/login`
-* `/logout`
-* `/refresh`
-* `/info`
+- `/login?name=name&password=password`
+- `/logout`
+- `/refresh`
+- `/status`
