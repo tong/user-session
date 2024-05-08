@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -45,6 +46,15 @@ func createSession(token string, user string, expires time.Time) (*Session, erro
 func deleteSession(token string) {
 	os.Remove(sessionDir + "/" + token)
 	delete(sessions, token)
+}
+
+func getUser(name string) (*User, error) {
+	for _, u := range users {
+		if u.Name == name {
+			return &u, nil
+		}
+	}
+	return nil, errors.New("not found")
 }
 
 func (s Session) isExprired() bool {
@@ -160,16 +170,40 @@ func Status(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// func Livestream(w http.ResponseWriter, r *http.Request) {
-// 	fmt.Println("handler:livestream")
-// }
-
 func List(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("handler:list")
-	fmt.Printf("sessions: %d", len(sessions))
-	for k, v := range sessions {
-		fmt.Println(k, v)
+	fmt.Printf("handler:list [%d]\n", len(sessions))
+	c, err := r.Cookie("session_token")
+	if err != nil {
+		if err == http.ErrNoCookie {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
+	token := c.Value
+	session, exists := sessions[token]
+	if !exists {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	if session.isExprired() {
+		deleteSession(token)
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	user, err := getUser(session.User)
+	if err != nil {
+		deleteSession(token)
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	if !user.Admin {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(sessions)
 }
 
 func main() {
